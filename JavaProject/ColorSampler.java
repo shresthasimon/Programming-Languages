@@ -5,6 +5,7 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.event.*;
+import java.lang.Math;
 
 public class ColorSampler extends JFrame{
     protected JButton save;
@@ -30,18 +31,39 @@ public class ColorSampler extends JFrame{
     protected ArrayList<ColorType> colorSet;
     protected String Colors[];
     protected int listSize;
-    protected int ColorLocation;
+    protected int ColorIndex;
 
     static ColorSampler program;
 
-    public static void main (String[] args){
-        try {
+    public static void main (String[] args) throws IOException{
+
             program = new ColorSampler("Color Sampler");
+    }
+
+    public void ImportFileColors () throws IOException{
+        File inFile = new File("Colors.txt");
+
+        FileInputStream stream = new FileInputStream(inFile);
+        InputStreamReader read = new InputStreamReader(stream);
+        StreamTokenizer tokens = new StreamTokenizer(read);
+
+
+
+        while(tokens.nextToken() != tokens.TT_EOF){
+            presentColor = new ColorType();
+            presentColor.name = (String)tokens.sval;
+            tokens.nextToken();
+            presentColor.r = (int) tokens.nval;
+            tokens.nextToken();
+            presentColor.g = (int) tokens.nval;
+            tokens.nextToken();
+            presentColor.b = (int)tokens.nval;
+            colorSet.add(presentColor);
+            ColorIndex++;
+
         }
-        catch(IOException e){
-            System.out.println("File does not exist!");
-            System.exit(0);
-        }
+
+        stream.close();
     }
 
     public ColorSampler(String title) throws IOException{
@@ -65,8 +87,8 @@ public class ColorSampler extends JFrame{
         GreenUp = new JButton("+");
 
         //blue buttons
-        BlueDown = new JButton("+");
-        BlueUp = new JButton("-");
+        BlueDown = new JButton("-");
+        BlueUp = new JButton("+");
 
         save.addActionListener(new ActionHandler());
         reset.addActionListener(new ActionHandler());
@@ -80,7 +102,7 @@ public class ColorSampler extends JFrame{
         BlueUp.addActionListener(new ActionHandler());
         BlueDown.addActionListener(new ActionHandler());
 
-        //droawing the color screen
+        //drAwing the color screen
         draw = new DrawingTester();
 
         draw.setBounds(10, 10, 200 ,200);
@@ -90,38 +112,68 @@ public class ColorSampler extends JFrame{
         leftSide = new JPanel();
         Selection = new JPanel();
 
-        //File stuff
-        File inFile = new File("Colors.txt");
-        if(!inFile.exists()){
-            throw new IOException("File Doesn't Exist!");
-        }
-        FileInputStream stream = new FileInputStream(inFile);
-        InputStreamReader read = new InputStreamReader(stream);
-        StreamTokenizer token = new StreamTokenizer(read);
-
         colorSet = new ArrayList<ColorType>();
+        //File stuff
+        ImportFileColors();
 
-        while(token.nextToken() != token.TT_EOF){
-            presentColor = new ColorType();
-            presentColor.name = (String)token.sval;
-            token.nextToken();
-            presentColor.r = (int) token.nval;
-            token.nextToken();
-            presentColor.g = (int) token.nval;
-            token.nextToken();
-            presentColor.b = (int)token.nval;
-            colorSet.add(presentColor);
-            ColorLocation++;
+        ColorIndex--;
+        listSize = ColorIndex + 1;
+        ColorIndex = 0;
 
+        presentColor = new ColorType(colorSet.get(ColorIndex));
+        Colors = new String[listSize];
+
+        for(int i = 0; i < listSize; i++){
+            Colors[i] = (colorSet.get(i)).name;
+            //System.out.println(colorSet.get(i).OutputString());
         }
+        colorList.setListData(Colors);
+        //System.out.print(colorList.getModel().getSize());
+        //System.out.print(Colors.length);
+        //colorList.setSelectedIndex(1);
+        Selection.setLayout(new GridLayout(3,4,5,5));
 
-        stream.close();
+        Buttons.add(save);
+        Buttons.add(reset);
 
-        ColorLocation--;
-        listSize = ColorLocation + 1;
-        ColorLocation = 0;
+        red = new JTextField(String.valueOf(presentColor.r));
+        Selection.add(new JLabel("Red:"));
+        Selection.add(red);
+        Selection.add(RedDown);
+        Selection.add(RedUp);
 
 
+        green = new JTextField(String.valueOf(presentColor.g));
+        Selection.add(new JLabel("Green: "));
+        Selection.add(green);
+        Selection.add(GreenDown);
+        Selection.add(GreenUp);
+
+
+        blue = new JTextField(String.valueOf(presentColor.b));
+        Selection.add(new JLabel("Blue: "));
+        Selection.add(blue);
+        Selection.add(BlueDown);
+        Selection.add(BlueUp);
+
+
+        leftSide.setLayout(null);
+        leftSide.add(draw);
+        leftSide.add(Selection);
+        leftSide.add(Buttons);
+
+        draw.setBounds(10,10,250,150);
+        Selection.setBounds(10,170,250,100);
+        Buttons.setBounds(50,290,200,50 );
+        leftSide.setBounds(10,10,270,400);
+        colorList.setBounds(300,20,130,310);
+
+        getContentPane().setLayout(null);
+        getContentPane().add(leftSide);
+        getContentPane().add(colorList);
+
+        setVisible(true);
+        ColorIndex = 0;
 
     }
 
@@ -141,8 +193,8 @@ public class ColorSampler extends JFrame{
 
         public ColorType( ColorType Other){
             this.r = Other.r;
-            this.r = Other.g;
-            this.r = Other.b;
+            this.g = Other.g;
+            this.b = Other.b;
             this.name = Other.name;
         }
 
@@ -160,12 +212,19 @@ public class ColorSampler extends JFrame{
     }
 
     private class WindowDestroyer extends WindowAdapter{
+
         public void windowClosing(WindowEvent e){
+            try{
+                output();
+            }
+            catch(IOException er){
+                System.out.println("File Doesn't Exist!");
+            }
             System.exit(0);
         }
 
         public void output() throws IOException{
-            File inputFile = new File("colors.txt");
+            File inputFile = new File("Colors.txt");
             if(!inputFile.exists()){
                 throw new IOException("File not found");
             }
@@ -180,36 +239,66 @@ public class ColorSampler extends JFrame{
 
     private class ActionHandler implements ActionListener{
         public void actionPerformed(ActionEvent e){
+            int newValue;
             if(e.getSource() == save ){
-                colorSet.set(ColorLocation, new ColorType(presentColor));
+                colorSet.set(ColorIndex, new ColorType(presentColor));
                 program.setTitle("Color Sampler");
             }
             else if(e.getSource() == reset){
-                presentColor = new ColorType(colorSet.get(ColorLocation));
+                presentColor = new ColorType(colorSet.get(ColorIndex));
                 program.setTitle("Color Sampler");
+                try{
+                    colorSet.clear();
+                    ImportFileColors();
+                    //ColorIndex = 0;
+//                    Colors = new String[listSize];
+//
+//                    for(int i = 0; i < listSize; i++){
+//                        Colors[i] = (colorSet.get(i)).name;
+//                    }
+//                    colorList.setListData(Colors);
+//                    colorList.setSelectedIndex(0);
+                    ColorIndex = colorList.getSelectedIndex();
+                    presentColor = colorSet.get(ColorIndex);
+                    red.setText(String.valueOf(presentColor.r));
+                    green.setText(String.valueOf(presentColor.g));
+                    blue.setText(String.valueOf(presentColor.b));
+                    draw.repaint();
+                    program.setTitle("Color Sampler");
+                }
+                catch(IOException e1){
+                    System.out.println("Couldn't open file to be imported");
+                }
+
             }
             else if(e.getSource() == RedUp){
-                presentColor.r = Math.min( 255, presentColor.r+5);
+                newValue = Math.min(255, colorSet.get(ColorIndex).r + 5);
+                colorSet.get(ColorIndex).r = newValue;
                 program.setTitle("Color Sampler*");
             }
             else if(e.getSource() == RedDown){
-                presentColor.r = Math.max(0, presentColor.r-5);
+                newValue = Math.max(0, colorSet.get(ColorIndex).r-5);
+                colorSet.get(ColorIndex).r = newValue;
                 program.setTitle("Color Sampler*");
             }
             else if(e.getSource() == GreenUp){
-                presentColor.g = Math.min(255, presentColor.g+5);
+                newValue = Math.min(255, colorSet.get(ColorIndex).g+5);
+                colorSet.get(ColorIndex).g = newValue;
                 program.setTitle("Color Sampler*");
             }
             else if(e.getSource() == GreenDown){
-                presentColor.g = Math.max(0,presentColor.g-5);
+                newValue = Math.max(0,colorSet.get(ColorIndex).g-5);
+                colorSet.get(ColorIndex).g = newValue;
                 program.setTitle("Color Sampler*");
             }
             else if(e.getSource() == BlueUp){
-                presentColor.b = Math.min(255, presentColor.b+5);
+                newValue = Math.min(255, colorSet.get(ColorIndex).b+5);
+                colorSet.get(ColorIndex).b = newValue;
                 program.setTitle("Color Sampler*");
             }
             else if(e.getSource() == BlueDown){
-                presentColor.b = Math.max(0, presentColor.b-5);
+                newValue = Math.max(0, colorSet.get(ColorIndex).b-5);
+                colorSet.get(ColorIndex).b = newValue;
                 program.setTitle("Color Sampler*");
             }
 
@@ -225,8 +314,8 @@ public class ColorSampler extends JFrame{
         public void valueChanged(ListSelectionEvent e){
             if(e.getSource() == colorList){
                 if(!e.getValueIsAdjusting()){
-                    ColorLocation = colorList.getSelectedIndex();
-                    presentColor = new ColorType(colorSet.get(ColorLocation));
+                    ColorIndex = colorList.getSelectedIndex();
+                    presentColor = colorSet.get(ColorIndex);
                     red.setText(String.valueOf(presentColor.r));
                     green.setText(String.valueOf(presentColor.g));
                     blue.setText(String.valueOf(presentColor.b));
@@ -238,4 +327,5 @@ public class ColorSampler extends JFrame{
         }
     }
 }
+
 
